@@ -4,25 +4,19 @@ def bytes_to_bitstr(b: bytes) -> str:
 def text_to_bitstr(s: str) -> str:
     return bytes_to_bitstr(s.encode('utf-8'))
 
-def xor(a: str, b: str) -> str:
-    return ''.join('0' if x == y else '1' for x, y in zip(a, b))
+def crc_calculate(data: str, polynomial: str) -> str:
+    """Oblicza CRC dla danych binarnych."""
+    r = len(polynomial) - 1
+    padded = list(data + "0" * r)
 
-def mod2div(dividend: str, divisor: str) -> str:
-    pick = len(divisor)
-    tmp = dividend[:pick]
+    for i in range(len(data)):
+        if padded[i] == "1":
+            for j in range(len(polynomial)):
+                padded[i + j] = str(
+                    int(padded[i + j]) ^ int(polynomial[j])
+                )
 
-    while pick < len(dividend):
-        if tmp[0] == '1':
-            tmp = xor(divisor, tmp) + dividend[pick]
-        else:
-            tmp = xor('0' * pick, tmp) + dividend[pick]
-        tmp = tmp.lstrip('0') or '0'
-        pick += 1
-
-    if tmp[0] == '1' and len(tmp) >= len(divisor):
-        tmp = xor(divisor, tmp)
-
-    return tmp[-(len(divisor) - 1):].rjust(len(divisor) - 1, '0')
+    return "".join(padded[-r:])
 
 def create_frame(text: str, poly: str) -> str:
     """
@@ -30,14 +24,27 @@ def create_frame(text: str, poly: str) -> str:
     data_bits + crc_bits
     """
     data_bits = text_to_bitstr(text)
-    padded = data_bits + '0' * (len(poly) - 1)
-    crc_bits = mod2div(padded, poly)
+    crc_bits = crc_calculate(data_bits, poly)
     return data_bits + crc_bits
+
+def crc_verify(data_with_crc: str, polynomial: str) -> bool:
+    """Sprawdza poprawność danych z CRC."""
+    r = len(polynomial) - 1
+    padded = list(data_with_crc)
+
+    for i in range(len(data_with_crc) - r):
+        if padded[i] == "1":
+            for j in range(len(polynomial)):
+                padded[i + j] = str(
+                    int(padded[i + j]) ^ int(polynomial[j])
+                )
+
+    return all(b == "0" for b in padded[-r:])
 
 def check_frame(frame_bits: str, poly: str) -> bool:
     """
     Odbiorca:
     dzieli CAŁĄ ramkę (data + crc)
+    Jeśli ramka jest OK, remainder powinien być ALL ZEROS
     """
-    remainder = mod2div(frame_bits, poly)
-    return set(remainder) == {'0'}
+    return crc_verify(frame_bits, poly)

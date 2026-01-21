@@ -67,18 +67,17 @@ class NodeServer:
         frame_bits = msg.get('frame_bits')
         poly = msg.get('crc_poly')
 
+        delay_time = None
+
+        # Check for DROP_PACKET error
         with self.lock:
-            if self.errors.get('DROP_PACKET'):
+            if self.errors.get('DROP_PACKET', False):
                 return {'status': 'dropped', 'node': self.node_id}
-
-        if self.errors.get('DELAY_PACKET'):
-            time.sleep(random.uniform(0.5, 1.5))
-
-        # BIT FLIP – prawdziwa symulacja uszkodzenia ramki
-        if self.errors.get('BIT_FLIP') and frame_bits:
-            idx = random.randrange(len(frame_bits))
-            flipped = '1' if frame_bits[idx] == '0' else '0'
-            frame_bits = frame_bits[:idx] + flipped + frame_bits[idx+1:]
+            
+            # Check for DELAY_PACKET error
+            if self.errors.get('DELAY_PACKET', False):
+                delay_time = random.uniform(0.5, 1.5)
+                time.sleep(delay_time)
 
         try:
             crc_ok = check_frame(frame_bits, poly)
@@ -91,12 +90,17 @@ class NodeServer:
             'frame_len': len(frame_bits)
         }
 
-        return {
+        response = {
             'status': 'received',
             'node': self.node_id,
             'from': sender,
             'crc_ok': crc_ok
         }
+        
+        if delay_time is not None:
+            response['delay'] = round(delay_time, 2)
+
+        return response
 
 
 def run_node(node_id: int, base_port: int):
