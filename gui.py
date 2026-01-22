@@ -214,10 +214,20 @@ class MainWindow(QtWidgets.QMainWindow):
             
             info += "<br>Ostatnia ramka CRC:<br>"
             if lm:
+                poly = self.crc_poly_edit.text().strip()
+                crc_len = len(poly) - 1 if poly else 0
+                frame_len = lm.get('frame_len', 0)
+                data_len = frame_len - crc_len if frame_len else 0
+                message = lm.get('message', '')
+                
                 info += (
                     f"od: {lm.get('from')}<br>"
-                    f"CRC OK: {lm.get('crc_ok')}<br>"
-                    f"Długość ramki (bity): {lm.get('frame_len')}"
+                    f"CRC OK: {'✓ TAK' if lm.get('crc_ok') else '✗ NIE'}<br>"
+                    f"Wiadomość: {message}<br>"
+                    f"Długość danych (bity): {data_len}<br>"
+                    f"Długość CRC (bity): {crc_len}<br>"
+                    f"Całkowita długość ramki (bity): {frame_len}<br>"
+                    f"Rozmiar wiadomości (znaki): {len(message)}"
                 )
             else:
                 info += "brak"
@@ -290,6 +300,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         res = send_message_to_node(receiver, {
             'from': sender,
+            'message': message,
             'frame_bits': frame_bits,
             'crc_poly': poly
         })
